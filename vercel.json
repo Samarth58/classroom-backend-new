@@ -2,14 +2,23 @@
   "version": 2,
   "builds": [
     {
-      "src": "dist/index.js",
+      "src": "src/index.ts",
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
-      "src": "/(.*)",
-      "dest": "dist/index.js"
+      "src": "/api/(.*)",
+      "dest": "src/index.ts"
+    },
+    {
+      "src": "/",
+      "dest": "src/index.ts"
+    },
+    {
+      "src": "/favicon.ico",
+      "dest": "src/index.ts"
     }
   ]
 }
+
