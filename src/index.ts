@@ -44,6 +44,11 @@ app.get("/", (req, res) => {
   res.send("Backend server is running!");
 });
 
+app.get("/favicon.ico", (req, res) => {
+  res.status(204).end();
+});
+
+
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
 });
