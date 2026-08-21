@@ -79,14 +79,14 @@ router.post("/", async (req, res) => {
       .returning({ id: enrollments.id });
 
     if (!createdEnrollment)
-      return res.status(500).json({ error: "Failed to create enrollment" });
+      return res.status(500).json({ error: error?.message || String(error), stack: error?.stack });
 
     const enrollment = await getEnrollmentDetails(createdEnrollment.id);
 
     res.status(201).json({ data: enrollment });
   } catch (error) {
     console.error("POST /enrollments error:", error);
-    res.status(500).json({ error: "Failed to create enrollment" });
+    res.status(500).json({ error: error?.message, cause: error?.cause, detail: error?.detail || error?.cause?.detail || error?.cause?.message });
   }
 });
 
@@ -136,14 +136,15 @@ router.post("/join", async (req, res) => {
       .returning({ id: enrollments.id });
 
     if (!createdEnrollment)
-      return res.status(500).json({ error: "Failed to join class" });
+      return res.status(500).json({ error: error?.message || String(error), stack: error?.stack });
 
     const enrollment = await getEnrollmentDetails(createdEnrollment.id);
 
     res.status(201).json({ data: enrollment });
   } catch (error) {
     console.error("POST /enrollments/join error:", error);
-    res.status(500).json({ error: "Failed to join class" });
+    if (error?.code === "23505") { return res.status(409).json({ error: "Student already enrolled in class" }); }
+    res.status(500).json({ error: error?.message || "Failed to create enrollment" });
   }
 });
 
