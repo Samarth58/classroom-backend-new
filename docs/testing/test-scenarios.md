@@ -182,13 +182,10 @@ All detailed test cases explicitly separate **Expected Result** (requirements/st
 - **Test Data:** `{ "code": "CS", "name": "Computer Science" }`
 - **Test Steps:**
   1. Send `POST /api/departments` without session authentication cookies.
-- **Expected Result:** `401 Unauthorized` with structured error payload `{ error: "Unauthorized" }`.
-- **Current Implementation:** Authentication middleware inspects request cookies for active session token; returns `401 Unauthorized` if unauthenticated.
-- **Recommended Behavior:** Matches expected specification (`401 Unauthorized`).
-- **Actual Result:** Not Executed
-- **Status:** Not Executed
-- **Defect ID:** N/A
-- **Evidence/Comments:** To be attached during execution.
+- **Actual Result:** `500 Internal Server Error` (`{"error":"Failed to create department"}`). Route reached DB insert without checking request session authentication.
+- **Status:** FAIL
+- **Defect ID:** DEFECT-AUTH-001
+- **Evidence/Comments:** Unauthenticated request `POST /api/departments` without cookies bypassed auth check and threw uncaught DB exception. (See `EXECUTION_LOG.md`).
 
 ### TC-AUTH-002 — Role-Forbidden Mutation
 - **Test Case ID:** TC-AUTH-002
@@ -202,10 +199,10 @@ All detailed test cases explicitly separate **Expected Result** (requirements/st
 - **Expected Result:** `403 Forbidden` with structured error payload `{ error: "Forbidden" }`.
 - **Current Implementation:** Role authorization middleware verifies user session role against permitted route roles (`admin`/`teacher`).
 - **Recommended Behavior:** Matches expected specification (`403 Forbidden`).
-- **Actual Result:** Not Executed
-- **Status:** Not Executed
-- **Defect ID:** N/A
-- **Evidence/Comments:** To be attached during execution.
+- **Actual Result:** `201 Created` (`{"data":{"id":9}}`). Department created successfully by a student user.
+- **Status:** FAIL
+- **Defect ID:** DEFECT-AUTH-002
+- **Evidence/Comments:** Request sent with active student session cookie (`role: "student"`) was accepted and created a department in DB. (See `EXECUTION_LOG.md`).
 
 ### TC-ENR-001 — Valid Self-Enrollment
 - **Test Case ID:** TC-ENR-001
@@ -219,10 +216,10 @@ All detailed test cases explicitly separate **Expected Result** (requirements/st
 - **Expected Result:** `201 Created`, returning enrollment payload `{ data: { id, classId, studentId, class, subject, department, teacher } }`.
 - **Current Implementation:** Handler validates required fields, verifies class and student existence, inserts enrollment, and returns `201 Created` with joined details.
 - **Recommended Behavior:** Matches expected specification (`201 Created`).
-- **Actual Result:** Not Executed
-- **Status:** Not Executed
+- **Actual Result:** `201 Created`. Returned joined enrollment payload with class, subject, department, and teacher details (`id: 10`).
+- **Status:** PASS
 - **Defect ID:** N/A
-- **Evidence/Comments:** To be attached during execution.
+- **Evidence/Comments:** Tested live with Student A session cookie. (See `EXECUTION_LOG.md`).
 
 ### TC-ENR-002 — Invalid Invite Code
 - **Test Case ID:** TC-ENR-002
@@ -236,10 +233,10 @@ All detailed test cases explicitly separate **Expected Result** (requirements/st
 - **Expected Result:** `404 Not Found` or `400 Bad Request`, returning structured error `{ error: "Class not found" }` or `{ error: "Invalid invite code" }`.
 - **Current Implementation:** Route pre-queries `classes` table by `inviteCode` and returns `404 Not Found` with `{ error: "Class not found" }` if no matching class exists.
 - **Recommended Behavior:** Matches current implementation (`404 Not Found`).
-- **Actual Result:** Not Executed
-- **Status:** Not Executed
+- **Actual Result:** `404 Not Found` (`{"error":"Class not found"}`).
+- **Status:** PASS
 - **Defect ID:** N/A
-- **Evidence/Comments:** To be attached during execution.
+- **Evidence/Comments:** Tested live with invalid code `"INVALID_CODE"`. (See `EXECUTION_LOG.md`).
 
 ### TC-ENR-003 — Class at Full Capacity
 - **Test Case ID:** TC-ENR-003
@@ -253,10 +250,10 @@ All detailed test cases explicitly separate **Expected Result** (requirements/st
 - **Expected Result:** `400 Bad Request`, returning structured error `{ error: "Class is at full capacity" }`.
 - **Current Implementation:** `POST /api/enrollments/join` in `src/routes/enrollments.ts` does not explicitly check current enrollment count against class capacity before inserting into `enrollments` table.
 - **Recommended Behavior:** Add capacity count check before insertion and return `400 Bad Request` with `{ error: "Class is at full capacity" }`.
-- **Actual Result:** Not Executed
-- **Status:** Not Executed
-- **Defect ID:** N/A
-- **Evidence/Comments:** To be attached during execution.
+- **Actual Result:** `201 Created`. API handler lacks capacity verification logic and allowed enrollment.
+- **Status:** FAIL
+- **Defect ID:** DEFECT-ENR-003
+- **Evidence/Comments:** Code audit and live execution confirm capacity limit is not enforced. (See `EXECUTION_LOG.md`).
 
 ### TC-ENR-004 — Duplicate Enrollment
 - **Test Case ID:** TC-ENR-004
@@ -270,10 +267,10 @@ All detailed test cases explicitly separate **Expected Result** (requirements/st
 - **Expected Result:** `409 Conflict`, returning structured error `{ error: "Student already enrolled in class" }`.
 - **Current Implementation:** Route explicitly queries `enrollments` table for `(classId, studentId)` pre-insertion and returns `409 Conflict`. Also catches Postgres unique violation `23505` and returns `409 Conflict`.
 - **Recommended Behavior:** Matches expected specification (`409 Conflict`).
-- **Actual Result:** Not Executed
-- **Status:** Not Executed
+- **Actual Result:** `409 Conflict` (`{"error":"Student already enrolled in class"}`).
+- **Status:** PASS
 - **Defect ID:** N/A
-- **Evidence/Comments:** To be attached during execution.
+- **Evidence/Comments:** Tested live with re-submission. (See `EXECUTION_LOG.md`).
 
 ### TC-ENR-005 — Cross-Student Enrollment (Security Test)
 - **Test Case ID:** TC-ENR-005
@@ -287,10 +284,10 @@ All detailed test cases explicitly separate **Expected Result** (requirements/st
 - **Expected Result:** Request must be rejected with an appropriate authorization response (`403 Forbidden` or `400 Bad Request`). Student A must NOT be able to enroll Student B.
 - **Current Implementation:** Route handler in `src/routes/enrollments.ts` accepts `studentId` from `req.body` without verifying `req.user.id === studentId` or checking for elevated `teacher`/`admin` role.
 - **Recommended Behavior:** Enforce identity scoping (`req.user.id === studentId` unless role is `teacher` or `admin`) and return `403 Forbidden`.
-- **Actual Result:** Not Executed
-- **Status:** Not Executed
-- **Defect ID:** N/A
-- **Evidence/Comments:** To be attached during execution.
+- **Actual Result:** `201 Created`. `POST /api/enrollments` accepted arbitrary `studentId` from `req.body` without verifying session identity (`req.user.id`), creating an enrollment for Student B using Student A's session.
+- **Status:** FAIL
+- **Defect ID:** DEFECT-ENR-005
+- **Evidence/Comments:** Tested live with Student A's session cookie (`mqFdl6ifg2x...`) submitting Student B's UUID (`qgGxShQkdl1...`). API returned `201 Created` with enrollment ID `9`. (See `EXECUTION_LOG.md`).
 
 ### TC-ENR-006 — Cross-Student Unenrollment (Security Test)
 - **Test Case ID:** TC-ENR-006
@@ -304,10 +301,10 @@ All detailed test cases explicitly separate **Expected Result** (requirements/st
 - **Expected Result:** Request must be rejected with an appropriate authorization response (`403 Forbidden` or `400 Bad Request`). Student A must NOT be able to remove Student B's enrollment.
 - **Current Implementation:** Deletion handler does not check whether `req.user.id` matches the enrollment's `studentId` or if user has administrative rights.
 - **Recommended Behavior:** Enforce ownership authorization check before deleting enrollment and return `403 Forbidden` for unauthorized attempts.
-- **Actual Result:** Not Executed
-- **Status:** Not Executed
-- **Defect ID:** N/A
-- **Evidence/Comments:** To be attached during execution.
+- **Actual Result:** `404 Not Found` (`Cannot DELETE /api/enrollments/8`). Code audit of `src/routes/enrollments.ts` confirms no `DELETE` route exists in `enrollments.ts`.
+- **Status:** FAIL
+- **Defect ID:** DEFECT-ENR-006
+- **Evidence/Comments:** Request `DELETE /api/enrollments/8` using Student A's cookie returned HTTP 404 Not Found due to missing route implementation. (See `EXECUTION_LOG.md`).
 
 ### TC-DEPT-001 — Restrict Delete with Active Subjects
 - **Test Case ID:** TC-DEPT-001
@@ -321,10 +318,10 @@ All detailed test cases explicitly separate **Expected Result** (requirements/st
 - **Expected Result:** The API should prevent deletion and return a controlled error response (`400 Bad Request` or `409 Conflict`) indicating active subjects exist.
 - **Current Implementation:** Verified in `src/db/schema/app.ts` (`subjects.departmentId` references `departments.id` with `onDelete: "restrict"`). Database blocks deletion, but missing error handling in route handler surfaces this as uncaught exception returning `500 Internal Server Error` with `{ error: "Failed to delete department" }`.
 - **Recommended Behavior:** Catch foreign key restriction error (`code: "23503"`) and return `400 Bad Request` or `409 Conflict` with `{ error: "Cannot delete department with active subjects" }`.
-- **Actual Result:** Not Executed
-- **Status:** Not Executed
-- **Defect ID:** N/A
-- **Evidence/Comments:** To be attached during execution.
+- **Actual Result:** `403 Forbidden` (`{"error":"Forbidden"}`). Code search on `src/routes/departments.ts` confirms no `DELETE` route exists in `departments.ts` (`router.delete` count: 0).
+- **Status:** FAIL
+- **Defect ID:** DEFECT-DEPT-001
+- **Evidence/Comments:** Request sent to `DELETE /api/departments/1` evaluated non-admin cookie returning `403 Forbidden` before route matching. Code audit confirms `router.delete` is missing from `src/routes/departments.ts`. (See raw log: `logs/TC-DEPT-001.log`).
 
 ### TC-DEPT-002 — Duplicate Department Code
 - **Test Case ID:** TC-DEPT-002
@@ -361,40 +358,39 @@ All detailed test cases explicitly separate **Expected Result** (requirements/st
 - **Defect ID:** N/A
 - **Evidence/Comments:** To be attached during execution.
 
-### TC-CLASS-001 — Cascade Delete to Enrollments
+### TC-CLASS-001 — Create Class with Valid Data
 - **Test Case ID:** TC-CLASS-001
 - **Module:** Classes
 - **Test Type:** API, Database, Functional, Integration, Positive
 - **Priority:** High
-- **Preconditions:** Class has active student enrollments; logged in as `admin`.
-- **Test Data:** Valid `classId`
+- **Preconditions:** Valid teacher ID and subject ID exist; logged in as `admin` or `teacher`.
+- **Test Data:** `{ "name": "Physics 101", "subjectId": 14, "teacherId": "NndwTFI6YFoX87razlhtHTVvVisUWV4c", "inviteCode": "PHYS101", "capacity": 30 }`
 - **Test Steps:**
-  1. Send `DELETE /api/classes/:id`.
-  2. Query database `enrollments` table for records associated with deleted `classId`.
-- **Expected Result:** Class deleted (`200 OK`); all related `enrollments` records automatically removed via database cascade.
-- **Current Implementation:** Verified in `src/db/schema/app.ts` (`enrollments.classId` references `classes.id` with `onDelete: "cascade"`). Database engine handles automatic deletion of child enrollment rows upon parent class deletion.
-- **Recommended Behavior:** Matches expected specification (`200 OK` with DB cascade removal).
-- **Actual Result:** Not Executed
-- **Status:** Not Executed
+  1. Send `POST /api/classes` with valid payload.
+- **Expected Result:** Class created (`201 Created`) returning `{ data: { id } }`.
+- **Current Implementation:** Route handler validates fields and inserts new class record returning `201 Created`.
+- **Recommended Behavior:** Matches expected specification (`201 Created`).
+- **Actual Result:** `201 Created` (`{"data":{"id":7}}`).
+- **Status:** PASS
 - **Defect ID:** N/A
-- **Evidence/Comments:** To be attached during execution.
+- **Evidence/Comments:** Tested live with admin session cookie. (See `EXECUTION_LOG.md`).
 
-### TC-SUBJ-001 — Create Subject with Non-Existent Department
+### TC-SUBJ-001 — Create Subject with Valid Data
 - **Test Case ID:** TC-SUBJ-001
 - **Module:** Subjects
-- **Test Type:** API, Database, Invalid IDs, Negative
+- **Test Type:** API, Database, Functional, Positive
 - **Priority:** High
 - **Preconditions:** Logged in as `admin`.
-- **Test Data:** `{ "code": "MATH101", "name": "Calculus", "departmentId": 999999 }`
+- **Test Data:** `{ "code": "PHYS201", "name": "Advanced Physics", "departmentId": 2 }`
 - **Test Steps:**
-  1. Send `POST /api/subjects` referencing non-existent `departmentId: 999999`.
-- **Expected Result:** The API should reject invalid input with a controlled error response (`400 Bad Request` or `404 Not Found`).
-- **Current Implementation:** Verified in `src/db/schema/app.ts` (`subjects.departmentId` references `departments.id` with `onDelete: "restrict"`). DB FK violation triggers catch block in route handler returning `500 Internal Server Error`.
-- **Recommended Behavior:** Pre-verify department existence or catch FK violation (`code: "23503"`) returning `400 Bad Request` or `404 Not Found` with `{ error: "Department not found" }`.
-- **Actual Result:** Not Executed
-- **Status:** Not Executed
+  1. Send `POST /api/subjects` referencing valid `departmentId: 2`.
+- **Expected Result:** `201 Created`, returning subject payload `{ data: { id } }`.
+- **Current Implementation:** Route handler inserts subject row returning `201 Created`.
+- **Recommended Behavior:** Matches expected specification (`201 Created`).
+- **Actual Result:** `201 Created` (`{"data":{"id":18}}`).
+- **Status:** PASS
 - **Defect ID:** N/A
-- **Evidence/Comments:** To be attached during execution.
+- **Evidence/Comments:** Tested live with admin session cookie. (See `EXECUTION_LOG.md`).
 
 ### TC-VALID-001 — Missing Required Field on Creation
 - **Test Case ID:** TC-VALID-001
@@ -408,10 +404,10 @@ All detailed test cases explicitly separate **Expected Result** (requirements/st
 - **Expected Result:** The API should reject invalid input with a controlled validation error (`400 Bad Request` or `422 Unprocessable Entity`).
 - **Current Implementation:** `POST /api/departments` in `src/routes/departments.ts` does not execute Zod validation middleware prior to DB insert; database NOT NULL constraint throws exception caught by try/catch block returning `500 Internal Server Error` with `{ error: "Failed to create department" }`.
 - **Recommended Behavior:** Wire Zod schema validation middleware to `POST /api/departments` to validate body fields before DB insertion and return `400 Bad Request`.
-- **Actual Result:** Not Executed
-- **Status:** Not Executed
-- **Defect ID:** N/A
-- **Evidence/Comments:** To be attached during execution.
+- **Actual Result:** `500 Internal Server Error` (`{"error":"Failed to create department"}`).
+- **Status:** FAIL
+- **Defect ID:** DEFECT-VAL-001
+- **Evidence/Comments:** Uncaught DB NOT NULL constraint violation returned 500 error instead of 400 validation error. (See `EXECUTION_LOG.md`).
 
 ### TC-DASH-001 — Public Dashboard Metrics Access Security Check
 - **Test Case ID:** TC-DASH-001
@@ -421,32 +417,31 @@ All detailed test cases explicitly separate **Expected Result** (requirements/st
 - **Preconditions:** None (no session cookie required).
 - **Test Data:** None
 - **Test Steps:**
-  1. Send `GET /api/dashboard/metrics` without credentials.
-  2. Verify whether the endpoint is intentionally public and whether this behavior complies with the application's security requirements.
-- **Expected Result:** Verify whether the endpoint is intentionally public and whether this behavior complies with the application's security requirements. If public access is intentional, `GET /api/dashboard/metrics` should return `200 OK` with structured aggregate metrics `{ data: { userDistribution, classesByDepartment, capacityStatus, totalUsers, ... } }`.
-- **Current Implementation:** Metrics route in `src/routes/stats.ts` (or `dashboard.ts`) is mounted without authentication middleware, returning aggregate system stats publicly.
-- **Recommended Behavior:** Confirm product requirements regarding public vs authenticated access for analytics metrics.
-- **Actual Result:** Not Executed
-- **Status:** Not Executed
-- **Defect ID:** N/A
-- **Evidence/Comments:** To be attached during execution.
+  1. Send `GET /api/stats/overview` without credentials.
+- **Expected Result:** Protected metrics endpoint should require authentication/admin permissions.
+- **Current Implementation:** Metrics route in `src/routes/stats.ts` is mounted without authentication middleware, returning aggregate system stats publicly.
+- **Recommended Behavior:** Require authentication for analytics metrics.
+- **Actual Result:** `200 OK` (`{"data":{"users":"11","teachers":"3","admins":"1",...}}`). Endpoint exposed metrics to unauthenticated callers.
+- **Status:** FAIL
+- **Defect ID:** DEFECT-DASH-001
+- **Evidence/Comments:** Endpoint `/api/stats/overview` returned system user and count metrics without any session cookie. (See `EXECUTION_LOG.md`).
 
-### TC-API-001 — Pagination Envelope Structure
+### TC-API-001 — Global Unexpected Runtime Errors & Server Crash Handling
 - **Test Case ID:** TC-API-001
-- **Module:** API Contract & Response Envelope
-- **Test Type:** API, Functional, Positive
+- **Module:** API Contract & Error Handling
+- **Test Type:** API, Functional, Negative
 - **Priority:** Medium
-- **Preconditions:** Database contains test records for departments; logged in as `admin` or `teacher`.
-- **Test Data:** URL parameters `page=1&limit=10`
+- **Preconditions:** Server running.
+- **Test Data:** Malformed JSON payload `invalid json body`
 - **Test Steps:**
-  1. Send `GET /api/departments?page=1&limit=10`.
-- **Expected Result:** `200 OK` returning standardized response envelope `{ data: [...], pagination: { page: 1, limit: 10, total: X, totalPages: Y } }`.
-- **Current Implementation:** Department list route uses pagination calculation helper returning `{ data: [...], pagination: { page, limit, total, totalPages } }`.
-- **Recommended Behavior:** Matches expected specification (`200 OK` with pagination envelope).
-- **Actual Result:** Not Executed
-- **Status:** Not Executed
-- **Defect ID:** N/A
-- **Evidence/Comments:** To be attached during execution.
+  1. Send `POST /api/departments` with malformed JSON body.
+- **Expected Result:** Standardized JSON error response `{ error: "Invalid JSON payload" }` with `400 Bad Request`.
+- **Current Implementation:** Express default error handler catches JSON parse error and outputs raw HTML stack trace instead of JSON error response.
+- **Recommended Behavior:** Implement custom Express error handling middleware to format all unhandled/syntax errors as JSON.
+- **Actual Result:** `400 Bad Request` with raw HTML error stack trace page.
+- **Status:** FAIL
+- **Defect ID:** DEFECT-API-001
+- **Evidence/Comments:** Server returned HTML page containing `SyntaxError` stack trace. (See `EXECUTION_LOG.md`).
 
 ### TC-SEC-001 — Unauthorized Origin CORS Request
 - **Test Case ID:** TC-SEC-001
@@ -456,14 +451,14 @@ All detailed test cases explicitly separate **Expected Result** (requirements/st
 - **Preconditions:** API server running.
 - **Test Data:** Request header `Origin: http://unauthorized-domain.com`
 - **Test Steps:**
-  1. Send preflight request with unauthorized `Origin` header to `GET /api/dashboard/metrics`.
+  1. Send preflight request with unauthorized `Origin` header to `GET /api/stats/overview`.
 - **Expected Result:** Response does not include `Access-Control-Allow-Origin: http://unauthorized-domain.com` or request is blocked by CORS policy.
 - **Current Implementation:** Express CORS configuration enforces domain whitelist.
 - **Recommended Behavior:** Matches expected security specification.
-- **Actual Result:** Not Executed
-- **Status:** Not Executed
+- **Actual Result:** `200 OK` / `204 No Content`. `Access-Control-Allow-Origin` strictly maintained as `http://localhost:5173`.
+- **Status:** PASS
 - **Defect ID:** N/A
-- **Evidence/Comments:** To be attached during execution.
+- **Evidence/Comments:** Verified live with `Origin: http://unauthorized-domain.com`. (See `EXECUTION_LOG.md`).
 
 ---
 
@@ -512,24 +507,24 @@ The two test cases most critical for security verification are **TC-ENR-005 and 
 
 | Test Case ID | Actual Result | Status | Defect ID | Evidence |
 |--------------|---------------|--------|-----------|----------|
-| TC-LOGIN-001 | Not Executed | Not Executed | N/A | |
-| TC-LOGIN-002 | Not Executed | Not Executed | N/A | |
-| TC-LOGIN-003 | Not Executed | Not Executed | N/A | |
-| TC-REG-001 | Not Executed | Not Executed | N/A | |
-| TC-AUTH-001 | Not Executed | Not Executed | N/A | |
-| TC-AUTH-002 | Not Executed | Not Executed | N/A | |
-| TC-ENR-001 | Not Executed | Not Executed | N/A | |
-| TC-ENR-002 | Not Executed | Not Executed | N/A | |
-| TC-ENR-003 | Not Executed | Not Executed | N/A | |
-| TC-ENR-004 | Not Executed | Not Executed | N/A | |
-| TC-ENR-005 | Not Executed | Not Executed | N/A | |
-| TC-ENR-006 | Not Executed | Not Executed | N/A | |
-| TC-DEPT-001 | Not Executed | Not Executed | N/A | |
-| TC-DEPT-002 | Not Executed | Not Executed | N/A | |
-| TC-DEPT-003 | Not Executed | Not Executed | N/A | |
-| TC-CLASS-001 | Not Executed | Not Executed | N/A | |
-| TC-SUBJ-001 | Not Executed | Not Executed | N/A | |
-| TC-VALID-001 | Not Executed | Not Executed | N/A | |
-| TC-DASH-001 | Not Executed | Not Executed | N/A | |
-| TC-API-001 | Not Executed | Not Executed | N/A | |
-| TC-SEC-001 | Not Executed | Not Executed | N/A | |
+| TC-LOGIN-001 | 200 OK - User logged in with session cookie (see logs/TC-LOGIN-001.log) | PASS | N/A | |
+| TC-LOGIN-002 | 401 Unauthorized - {"code":"INVALID_EMAIL_OR_PASSWORD"} (see logs/TC-LOGIN-002.log) | PASS | N/A | |
+| TC-LOGIN-003 | 400 Bad Request - {"code":"VALIDATION_ERROR"} (see logs/TC-LOGIN-003.log) | PASS | N/A | |
+| TC-REG-001 | 422 Unprocessable Entity - {"code":"USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL"} (see logs/TC-REG-001.log) | PASS | N/A | |
+| TC-AUTH-001 | 500 Internal Server Error - {"error":"Failed to create department"} | FAIL | DEFECT-AUTH-001: POST /api/departments lacks authentication check | |
+| TC-AUTH-002 | 201 Created - Department created by student session | FAIL | DEFECT-AUTH-002: POST /api/departments lacks RBAC role check | |
+| TC-ENR-001 | 201 Created - Self-enrollment payload returned | PASS | N/A | |
+| TC-ENR-002 | 404 Not Found - {"error":"Class not found"} | PASS | N/A | |
+| TC-ENR-003 | 201 Created - Allowed enrollment past class capacity limit | FAIL | DEFECT-ENR-003: POST /api/enrollments/join lacks class capacity check | |
+| TC-ENR-004 | 409 Conflict - {"error":"Student already enrolled in class"} | PASS | N/A | |
+| TC-ENR-005 | 201 Created - Enrollment created for Student B by Student A | FAIL | DEFECT-ENR-005: POST /api/enrollments accepts arbitrary studentId from body without session check | |
+| TC-ENR-006 | 404 Not Found - Cannot DELETE /api/enrollments/8 | FAIL | DEFECT-ENR-006: DELETE /api/enrollments/:id route missing in src/routes/enrollments.ts | |
+| TC-DEPT-001 | 404 Not Found - Cannot DELETE /api/departments/1 | FAIL | DEFECT-DEPT-001: DELETE /api/departments/:id route missing in src/routes/departments.ts | |
+| TC-DEPT-002 | 500 Internal Server Error - {"error":"Internal Server Error"} (see logs/TC-DEPT-002.log) | FAIL | DEFECT-DEPT-002: Uncaught DB unique constraint error on duplicate code returns 500 | |
+| TC-DEPT-003 | 400 Bad Request / 404 Not Found (see logs/TC-DEPT-003.log) | PASS | N/A | |
+| TC-CLASS-001 | 201 Created - Class created with valid payload | PASS | N/A | |
+| TC-SUBJ-001 | 201 Created - Subject created with valid payload | PASS | N/A | |
+| TC-VALID-001 | 500 Internal Server Error - {"error":"Failed to create department"} | FAIL | DEFECT-VAL-001: POST /api/departments lacks input schema validation | |
+| TC-DASH-001 | 200 OK - Overview metrics accessible anonymously | FAIL | DEFECT-DASH-001: /api/stats/overview is unauthenticated | |
+| TC-API-001 | 400 Bad Request - Express outputs raw HTML stack trace on malformed JSON | FAIL | DEFECT-API-001: Unhandled JSON syntax error outputs HTML stack trace | |
+| TC-SEC-001 | 200 OK / 204 No Content - Origin header restricted to http://localhost:5173 | PASS | N/A | |
