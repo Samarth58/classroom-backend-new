@@ -509,7 +509,8 @@ The two test cases most critical for security verification are **TC-ENR-005 and 
 |--------------|---------------|--------|-----------|----------|
 | TC-LOGIN-001 | 200 OK - User logged in with session cookie (see EXECUTION_LOG.md) | PASS | N/A | |
 | TC-LOGIN-002 | 401 Unauthorized - {"code":"INVALID_EMAIL_OR_PASSWORD"} (see EXECUTION_LOG.md) | PASS | N/A | |
-| TC-LOGIN-003 | 400 Bad Request - {"code":"VALIDATION_ERROR"} (see EXECUTION_LOG.md) | PASS | N/A | |
+| TC-LOGIN-003 | 400 Bad Request - {"code":"VALIDATION_ERROR"} (see EXECUTION_LOG.md) | PASS | 
+N/A | |
 | TC-REG-001 | 422 Unprocessable Entity - {"code":"USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL"} (see EXECUTION_LOG.md) | PASS | N/A | |
 | TC-REG-002 (TS-001) | 200 OK - User registered with role student | PASS | N/A | |
 | TC-REG-003 (TS-007) | 200 OK - Default role student assigned when role omitted | PASS | N/A | |
@@ -557,3 +558,98 @@ The two test cases most critical for security verification are **TC-ENR-005 and 
 | TC-VALID-002 (TS-055) | 500 Internal Server Error - POST /api/subjects missing fields returns 500 | FAIL | DEFECT-VAL-002: POST /api/subjects lacks input schema validation | |
 | TC-VALID-003 (TS-056) | 500 Internal Server Error - POST /api/classes missing fields returns 500 | FAIL | DEFECT-VAL-003: POST /api/classes lacks input schema validation | |
 
+---
+
+## Final Retest Execution — All 50 Standardised Test Cases (2026-08-25)
+
+> Complete re-execution of the 50-case suite after all defect fixes. Run via `scratch/run-full-suite.ps1` with run-scoped test data for full isolation. Zero environment carry-over between runs.
+
+### Summary
+
+| Metric | Value |
+|--------|-------|
+| **Total test cases** | 50 |
+| **PASS** | **50** |
+| **FAIL** | **0** |
+| **Defects remaining open** | **0** |
+
+### Full Results Table
+
+| TC ID | Name | Expected | Actual | Result |
+|-------|------|----------|--------|--------|
+| TC-AUTH-001 | User Registration | 200 | 200 | ✅ PASS |
+| TC-AUTH-002 | User Login | 200 | 200 | ✅ PASS |
+| TC-AUTH-003 | Invalid Login Credentials | 401 | 401 | ✅ PASS |
+| TC-AUTH-004 | User Logout without Origin Header | 200 | 200 | ✅ PASS |
+| TC-AUTH-005 | Get User List (RBAC) | 200 | 200 | ✅ PASS |
+| TC-AUTH-006 | Duplicate Email Signup | 422 | 422 | ✅ PASS |
+| TC-AUTH-007 | Default Role Registration | 200 | 200 | ✅ PASS |
+| TC-DEPT-001 | Create Department (Admin) | 201 | 201 | ✅ PASS |
+| TC-DEPT-002 | List Departments with Pagination | 200 | 200 | ✅ PASS |
+| TC-DEPT-003 | Search Departments | 200 | 200 | ✅ PASS |
+| TC-DEPT-004 | Update Department (PATCH) | 200 | 200 | ✅ PASS |
+| TC-DEPT-005 | Delete Restricted Department | 400 | 400 | ✅ PASS |
+| TC-DEPT-006 | Get Department Details & Totals | 200 | 200 | ✅ PASS |
+| TC-DEPT-007 | List Department Subjects | 200 | 200 | ✅ PASS |
+| TC-DEPT-008 | List Department Classes | 200 | 200 | ✅ PASS |
+| TC-SUBJ-001 | Create Subject (Admin) | 201 | 201 | ✅ PASS |
+| TC-SUBJ-002 | List Subjects Filtered by Department | 200 | 200 | ✅ PASS |
+| TC-SUBJ-003 | Update Subject (PATCH) | 200 | 200 | ✅ PASS |
+| TC-SUBJ-004 | Delete Subject | 200 | 200 | ✅ PASS |
+| TC-SUBJ-005 | Create Subject Non-existent DepartmentId | 400 | 400 | ✅ PASS |
+| TC-SUBJ-006 | Create Subject Duplicate Code | 409 | 409 | ✅ PASS |
+| TC-SUBJ-007 | Get Subject Details & Totals | 200 | 200 | ✅ PASS |
+| TC-CLASS-001 | Create Class with Auto InviteCode | 201 | 201 | ✅ PASS |
+| TC-CLASS-002 | List Classes Filtered by Subject | 200 | 200 | ✅ PASS |
+| TC-CLASS-003 | Get Class Details | 200 | 200 | ✅ PASS |
+| TC-CLASS-004 | Update Class (PATCH) | 200 | 200 | ✅ PASS |
+| TC-CLASS-005 | Delete Class | 200 | 200 | ✅ PASS |
+| TC-CLASS-006 | Join Full Capacity Class | 400 | 400 | ✅ PASS |
+| TC-CLASS-007 | Create Class Non-existent Subject/Teacher | 400 | 400 | ✅ PASS |
+| TC-ENR-001 | Student Self Enrollment | 201 | 201 | ✅ PASS |
+| TC-ENR-002 | Join Class by Invite Code | 201 | 201 | ✅ PASS |
+| TC-ENR-003 | List User Enrollments | 200 | 200 | ✅ PASS |
+| TC-ENR-004 | List Class Enrollments / Users | 200 | 200 | ✅ PASS |
+| TC-ENR-005 | Delete Student Enrollment | 200 | 200 | ✅ PASS |
+| TC-ENR-006 | Duplicate Enrollment Prevention | 409 | 409 | ✅ PASS |
+| TC-ENR-007 | Join Class Invalid Invite Code | 404 | 404 | ✅ PASS |
+| TC-ENR-008 | Admin Enroll Student on Behalf | 201 | 201 | ✅ PASS |
+| TC-DASH-001 | Dashboard Overview Metrics (Auth) | 200 | 200 | ✅ PASS |
+| TC-DASH-002 | Dashboard Latest Activities (Auth) | 200 | 200 | ✅ PASS |
+| TC-DASH-003 | Dashboard Chart Data (Auth) | 200 | 200 | ✅ PASS |
+| TC-API-001 | Pagination Envelope Schema | 200 | 200 | ✅ PASS |
+| TC-API-002 | Empty Search Results Array Format | 200 | 200 | ✅ PASS |
+| TC-API-003 | Invalid Numeric ID Handling | 400 | 400 | ✅ PASS |
+| TC-API-004 | Non-existent Resource ID Handling | 404 | 404 | ✅ PASS |
+| TC-SEC-001 | CORS Origin Enforcement | 200 | 200 | ✅ PASS |
+| TC-SEC-002 | Cascade Delete Verification | 200 | 200 | ✅ PASS |
+| TC-SEC-003 | Unauthenticated POST Rejection | 401 | 401 | ✅ PASS |
+| TC-SEC-004 | Student Role POST Rejection (403) | 403 | 403 | ✅ PASS |
+| TC-SEC-005 | Cross-Student Enrollment Attack (403) | 403 | 403 | ✅ PASS |
+| DEFECT-API-001 | Global Error Handler JSON SyntaxError | 400 | 400 | ✅ PASS |
+
+### All Defects Fixed & Verified
+
+| Defect ID | Description | Fix Applied |
+|-----------|-------------|-------------|
+| DEFECT-AUTH-001 | Unauthenticated POST /api/departments | Added `authenticate` middleware |
+| DEFECT-AUTH-002 | Student could create department | Added `requireRole("admin","teacher")` |
+| DEFECT-AUTH-003 | Sign-out fails without Origin header | `advanced: { disableCSRFCheck: true }` in betterAuth |
+| DEFECT-DEPT-001 | DELETE /api/departments/:id missing | Implemented with FK restrict-check |
+| DEFECT-DEPT-002 | Duplicate dept code → 500 | Catch pg error `23505` → 409 |
+| DEFECT-DEPT-007 | PATCH /api/departments/:id missing | Implemented with partial Zod validation |
+| DEFECT-SUBJ-004 | PATCH /api/subjects/:id missing | Implemented |
+| DEFECT-SUBJ-005 | DELETE /api/subjects/:id missing | Implemented |
+| DEFECT-SUBJ-006 | Bad departmentId FK → 500 | Catch `23503` → 400 |
+| DEFECT-SUBJ-007 | Duplicate subject code → 500 | Catch `23505` → 409 |
+| DEFECT-CLASS-003 | Missing inviteCode → 500 | Auto-generate 7-char code server-side with retry |
+| DEFECT-CLASS-006 | PATCH /api/classes/:id missing | Implemented |
+| DEFECT-CLASS-007 | DELETE /api/classes/:id missing | Implemented |
+| DEFECT-CLASS-008 | Bad subjectId/teacherId FK → 500 | Catch `23503` → 400 |
+| DEFECT-ENR-003 | No class capacity enforcement | Atomic CTE INSERT with capacity check (race-safe) |
+| DEFECT-ENR-005 | Student could enroll arbitrary studentId | Enforce `effectiveStudentId = req.user.id` for students |
+| DEFECT-ENR-006/007 | DELETE /api/enrollments/:id missing | Implemented with ownership check → 403 |
+| DEFECT-VAL-001 | POST /api/departments missing fields → 500 | Zod `createDepartmentSchema` validation middleware |
+| DEFECT-VAL-002 | POST /api/subjects missing fields → 500 | Zod `createSubjectSchema` validation middleware |
+| DEFECT-VAL-003 | POST /api/classes missing fields → 500 | Zod `createClassSchema` validation middleware |
+| DEFECT-API-001 | Malformed JSON → HTML stack trace | Global `SyntaxError` handler in `src/index.ts` |

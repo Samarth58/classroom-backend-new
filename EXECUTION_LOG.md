@@ -850,3 +850,65 @@ curl.exe -v -b student-cookies.txt http://localhost:8000/api/classes \
 **Status:** FAIL  
 **Defect:** DEFECT-CLASS-002B: Route `POST /api/classes` has no RBAC authorization middleware — student-role sessions can create classes, which should be restricted to `admin`/`teacher` roles only.
 
+
+---
+
+## Final Full-Suite Retest — 2026-08-25
+
+**Runner:** scratch/run-full-suite.ps1 (fully self-contained, run-scoped test data)  
+**Result: 50 / 50 PASS — 0 defects remaining**
+
+All 22 defects (DEFECT-AUTH-001/002/003, DEFECT-DEPT-001/002/007, DEFECT-SUBJ-004/005/006/007, DEFECT-CLASS-003/006/007/008, DEFECT-ENR-003/005/006/007, DEFECT-VAL-001/002/003, DEFECT-API-001) are fixed and verified green.
+
+| TC ID | Name | Expected | Actual | Result |
+|-------|------|----------|--------|--------|
+| TC-AUTH-001 | User Registration | 200 | 200 | PASS |
+| TC-AUTH-002 | User Login | 200 | 200 | PASS |
+| TC-AUTH-003 | Invalid Login Credentials | 401 | 401 | PASS |
+| TC-AUTH-004 | User Logout without Origin Header | 200 | 200 | PASS |
+| TC-AUTH-005 | Get User List (RBAC) | 200 | 200 | PASS |
+| TC-AUTH-006 | Duplicate Email Signup | 422 | 422 | PASS |
+| TC-AUTH-007 | Default Role Registration | 200 | 200 | PASS |
+| TC-DEPT-001 | Create Department (Admin) | 201 | 201 | PASS |
+| TC-DEPT-002 | List Departments with Pagination | 200 | 200 | PASS |
+| TC-DEPT-003 | Search Departments | 200 | 200 | PASS |
+| TC-DEPT-004 | Update Department (PATCH) | 200 | 200 | PASS |
+| TC-DEPT-005 | Delete Restricted Department | 400 | 400 | PASS |
+| TC-DEPT-006 | Get Department Details and Totals | 200 | 200 | PASS |
+| TC-DEPT-007 | List Department Subjects | 200 | 200 | PASS |
+| TC-DEPT-008 | List Department Classes | 200 | 200 | PASS |
+| TC-SUBJ-001 | Create Subject (Admin) | 201 | 201 | PASS |
+| TC-SUBJ-002 | List Subjects Filtered by Department | 200 | 200 | PASS |
+| TC-SUBJ-003 | Update Subject (PATCH) | 200 | 200 | PASS |
+| TC-SUBJ-004 | Delete Subject | 200 | 200 | PASS |
+| TC-SUBJ-005 | Create Subject Non-existent DepartmentId | 400 | 400 | PASS |
+| TC-SUBJ-006 | Create Subject Duplicate Code | 409 | 409 | PASS |
+| TC-SUBJ-007 | Get Subject Details and Totals | 200 | 200 | PASS |
+| TC-CLASS-001 | Create Class with Auto InviteCode | 201 | 201 | PASS |
+| TC-CLASS-002 | List Classes Filtered by Subject | 200 | 200 | PASS |
+| TC-CLASS-003 | Get Class Details | 200 | 200 | PASS |
+| TC-CLASS-004 | Update Class (PATCH) | 200 | 200 | PASS |
+| TC-CLASS-005 | Delete Class | 200 | 200 | PASS |
+| TC-CLASS-006 | Join Full Capacity Class | 400 | 400 | PASS |
+| TC-CLASS-007 | Create Class Non-existent Subject/Teacher | 400 | 400 | PASS |
+| TC-ENR-001 | Student Self Enrollment | 201 | 201 | PASS |
+| TC-ENR-002 | Join Class by Invite Code | 201 | 201 | PASS |
+| TC-ENR-003 | List User Enrollments | 200 | 200 | PASS |
+| TC-ENR-004 | List Class Enrollments / Users | 200 | 200 | PASS |
+| TC-ENR-005 | Delete Student Enrollment | 200 | 200 | PASS |
+| TC-ENR-006 | Duplicate Enrollment Prevention | 409 | 409 | PASS |
+| TC-ENR-007 | Join Class Invalid Invite Code | 404 | 404 | PASS |
+| TC-ENR-008 | Admin Enroll Student on Behalf | 201 | 201 | PASS |
+| TC-DASH-001 | Dashboard Overview Metrics (Auth) | 200 | 200 | PASS |
+| TC-DASH-002 | Dashboard Latest Activities (Auth) | 200 | 200 | PASS |
+| TC-DASH-003 | Dashboard Chart Data (Auth) | 200 | 200 | PASS |
+| TC-API-001 | Pagination Envelope Schema | 200 | 200 | PASS |
+| TC-API-002 | Empty Search Results Array Format | 200 | 200 | PASS |
+| TC-API-003 | Invalid Numeric ID Handling | 400 | 400 | PASS |
+| TC-API-004 | Non-existent Resource ID Handling | 404 | 404 | PASS |
+| TC-SEC-001 | CORS Origin Enforcement | 200 | 200 | PASS |
+| TC-SEC-002 | Cascade Delete Verification | 200 | 200 | PASS |
+| TC-SEC-003 | Unauthenticated POST Rejection | 401 | 401 | PASS |
+| TC-SEC-004 | Student Role POST Rejection (403) | 403 | 403 | PASS |
+| TC-SEC-005 | Cross-Student Enrollment Attack (403) | 403 | 403 | PASS |
+| DEFECT-API-001 | Global Error Handler JSON SyntaxError | 400 | 400 | PASS |
