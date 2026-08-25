@@ -507,24 +507,53 @@ The two test cases most critical for security verification are **TC-ENR-005 and 
 
 | Test Case ID | Actual Result | Status | Defect ID | Evidence |
 |--------------|---------------|--------|-----------|----------|
-| TC-LOGIN-001 | 200 OK - User logged in with session cookie (see logs/TC-LOGIN-001.log) | PASS | N/A | |
-| TC-LOGIN-002 | 401 Unauthorized - {"code":"INVALID_EMAIL_OR_PASSWORD"} (see logs/TC-LOGIN-002.log) | PASS | N/A | |
-| TC-LOGIN-003 | 400 Bad Request - {"code":"VALIDATION_ERROR"} (see logs/TC-LOGIN-003.log) | PASS | N/A | |
-| TC-REG-001 | 422 Unprocessable Entity - {"code":"USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL"} (see logs/TC-REG-001.log) | PASS | N/A | |
+| TC-LOGIN-001 | 200 OK - User logged in with session cookie (see EXECUTION_LOG.md) | PASS | N/A | |
+| TC-LOGIN-002 | 401 Unauthorized - {"code":"INVALID_EMAIL_OR_PASSWORD"} (see EXECUTION_LOG.md) | PASS | N/A | |
+| TC-LOGIN-003 | 400 Bad Request - {"code":"VALIDATION_ERROR"} (see EXECUTION_LOG.md) | PASS | N/A | |
+| TC-REG-001 | 422 Unprocessable Entity - {"code":"USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL"} (see EXECUTION_LOG.md) | PASS | N/A | |
+| TC-REG-002 (TS-001) | 200 OK - User registered with role student | PASS | N/A | |
+| TC-REG-003 (TS-007) | 200 OK - Default role student assigned when role omitted | PASS | N/A | |
 | TC-AUTH-001 | 500 Internal Server Error - {"error":"Failed to create department"} | FAIL | DEFECT-AUTH-001: POST /api/departments lacks authentication check | |
 | TC-AUTH-002 | 201 Created - Department created by student session | FAIL | DEFECT-AUTH-002: POST /api/departments lacks RBAC role check | |
+| TC-AUTH-003 (TS-004) | 403 Forbidden - POST /api/auth/sign-out fails without Origin header | FAIL | DEFECT-AUTH-003: Sign-out endpoint requires Origin header | |
+| TC-SUBJ-002 (A/B) | 201 Created - POST /api/subjects allows unauth and student requests | FAIL | DEFECT-SUBJ-002A/B: POST /api/subjects lacks auth & RBAC | |
+| TC-CLASS-002 (A/B) | 201 Created - POST /api/classes allows unauth and student requests | FAIL | DEFECT-CLASS-002A/B: POST /api/classes lacks auth & RBAC | |
+| TC-DEPT-001 | 404 Not Found - Cannot DELETE /api/departments/1 | FAIL | DEFECT-DEPT-001: DELETE /api/departments/:id route missing | |
+| TC-DEPT-002 | 500 Internal Server Error - Uncaught DB unique constraint on duplicate code | FAIL | DEFECT-DEPT-002: Duplicate dept code returns 500 | |
+| TC-DEPT-003 | 400 Bad Request / 404 Not Found - Invalid & non-existent IDs handled | PASS | N/A | |
+| TC-DEPT-004 (TS-008) | 201 Created - Department created by admin | PASS | N/A | |
+| TC-DEPT-005 (TS-009) | 200 OK - Department list with pagination returned | PASS | N/A | |
+| TC-DEPT-006 (TS-010) | 200 OK - Department search by code/name returned matching records | PASS | N/A | |
+| TC-DEPT-007 (TS-011) | 404 Not Found - Cannot PATCH /api/departments/2 | FAIL | DEFECT-DEPT-007: PATCH /api/departments/:id route missing | |
+| TC-SUBJ-001 | 201 Created - Subject created with valid payload | PASS | N/A | |
+| TC-SUBJ-003 (TS-017) | 200 OK - Subject list with department filter returned | PASS | N/A | |
+| TC-SUBJ-004 (TS-018) | 404 Not Found - Cannot PATCH /api/subjects/13 | FAIL | DEFECT-SUBJ-004: PATCH /api/subjects/:id route missing | |
+| TC-SUBJ-005 (TS-019) | 404 Not Found - Cannot DELETE /api/subjects/21 | FAIL | DEFECT-SUBJ-005: DELETE /api/subjects/:id route missing | |
+| TC-SUBJ-006 (TS-020) | 500 Internal Server Error - Non-existent departmentId returns 500 | FAIL | DEFECT-SUBJ-006: FK violation on departmentId returns 500 | |
+| TC-SUBJ-007 (TS-021) | 500 Internal Server Error - Duplicate subject code returns 500 | FAIL | DEFECT-SUBJ-007: Unique violation on subject code returns 500 | |
+| TC-CLASS-001 | 201 Created - Class created with valid payload | PASS | N/A | |
+| TC-CLASS-003 (TS-023) | 500 Internal Server Error - Missing inviteCode fails instead of auto-gen | FAIL | DEFECT-CLASS-003: inviteCode is mandatory body field | |
+| TC-CLASS-004 (TS-024) | 200 OK - Class list filtered by subjectId returned | PASS | N/A | |
+| TC-CLASS-005 (TS-025) | 200 OK - Single class details with joined relations returned | PASS | N/A | |
+| TC-CLASS-006 (TS-026) | 404 Not Found - Cannot PATCH /api/classes/1 | FAIL | DEFECT-CLASS-006: PATCH /api/classes/:id route missing | |
+| TC-CLASS-007 (TS-027) | 404 Not Found - Cannot DELETE /api/classes/1 | FAIL | DEFECT-CLASS-007: DELETE /api/classes/:id route missing | |
+| TC-CLASS-008 (TS-029) | 500 Internal Server Error - Invalid subjectId/teacherId returns 500 | FAIL | DEFECT-CLASS-008: FK constraint on class creation returns 500 | |
 | TC-ENR-001 | 201 Created - Self-enrollment payload returned | PASS | N/A | |
 | TC-ENR-002 | 404 Not Found - {"error":"Class not found"} | PASS | N/A | |
 | TC-ENR-003 | 201 Created - Allowed enrollment past class capacity limit | FAIL | DEFECT-ENR-003: POST /api/enrollments/join lacks class capacity check | |
 | TC-ENR-004 | 409 Conflict - {"error":"Student already enrolled in class"} | PASS | N/A | |
 | TC-ENR-005 | 201 Created - Enrollment created for Student B by Student A | FAIL | DEFECT-ENR-005: POST /api/enrollments accepts arbitrary studentId from body without session check | |
 | TC-ENR-006 | 404 Not Found - Cannot DELETE /api/enrollments/8 | FAIL | DEFECT-ENR-006: DELETE /api/enrollments/:id route missing in src/routes/enrollments.ts | |
-| TC-DEPT-001 | 404 Not Found - Cannot DELETE /api/departments/1 | FAIL | DEFECT-DEPT-001: DELETE /api/departments/:id route missing in src/routes/departments.ts | |
-| TC-DEPT-002 | 500 Internal Server Error - {"error":"Internal Server Error"} (see logs/TC-DEPT-002.log) | FAIL | DEFECT-DEPT-002: Uncaught DB unique constraint error on duplicate code returns 500 | |
-| TC-DEPT-003 | 400 Bad Request / 404 Not Found (see logs/TC-DEPT-003.log) | PASS | N/A | |
-| TC-CLASS-001 | 201 Created - Class created with valid payload | PASS | N/A | |
-| TC-SUBJ-001 | 201 Created - Subject created with valid payload | PASS | N/A | |
-| TC-VALID-001 | 500 Internal Server Error - {"error":"Failed to create department"} | FAIL | DEFECT-VAL-001: POST /api/departments lacks input schema validation | |
+| TC-ENR-007 (TS-034) | 404 Not Found - Cannot DELETE /api/enrollments/1 | FAIL | DEFECT-ENR-007: DELETE /api/enrollments/:id route missing | |
+| TC-ENR-008 (TS-037) | 201 Created - Admin/Teacher can enroll student on behalf | PASS | N/A | |
+| TC-ENR-009 (TS-057) | 400 Bad Request - {"error":"classId and studentId are required"} | PASS | N/A | |
 | TC-DASH-001 | 200 OK - Overview metrics accessible anonymously | FAIL | DEFECT-DASH-001: /api/stats/overview is unauthenticated | |
+| TC-DASH-002 (TS-038) | 200 OK - Overview metrics returns correct count shapes | PASS | N/A | |
+| TC-DASH-003 (TS-040) | 200 OK - Charts stats returns structured chart arrays | PASS | N/A | |
 | TC-API-001 | 400 Bad Request - Express outputs raw HTML stack trace on malformed JSON | FAIL | DEFECT-API-001: Unhandled JSON syntax error outputs HTML stack trace | |
+| TC-API-002 (TS-041) | 200 OK - Standard pagination envelope shape returned across list endpoints | PASS | N/A | |
 | TC-SEC-001 | 200 OK / 204 No Content - Origin header restricted to http://localhost:5173 | PASS | N/A | |
+| TC-VALID-001 | 500 Internal Server Error - {"error":"Failed to create department"} | FAIL | DEFECT-VAL-001: POST /api/departments lacks input schema validation | |
+| TC-VALID-002 (TS-055) | 500 Internal Server Error - POST /api/subjects missing fields returns 500 | FAIL | DEFECT-VAL-002: POST /api/subjects lacks input schema validation | |
+| TC-VALID-003 (TS-056) | 500 Internal Server Error - POST /api/classes missing fields returns 500 | FAIL | DEFECT-VAL-003: POST /api/classes lacks input schema validation | |
+

@@ -647,5 +647,206 @@ curl -v -X POST http://localhost:8000/api/departments \
 **Status:** FAIL  
 **Defect:** DEFECT-VAL-001: Route `POST /api/departments` lacks input payload schema validation, triggering unhandled DB exceptions and returning HTTP 500 Internal Server Error on missing required fields.
 
+---
 
+## TC-SUBJ-002 — POST /api/subjects Auth Guard Check (Scenario A: No Cookie)
+
+**Timestamp:** 2026-08-24T17:35:36+05:30  
+**Target URL:** `http://localhost:8000/api/subjects`  
+**Command Executed:**
+```bash
+curl.exe -v -X POST http://localhost:8000/api/subjects \
+  -H "Content-Type: application/json" \
+  -d '{"code":"SUBJTEST","name":"Subject Test","departmentId":2}'
+```
+
+**Raw Output:**
+```http
+Note: Unnecessary use of -X or --request, POST is already inferred.
+* Host localhost:8000 was resolved.
+* IPv6: ::1
+* IPv4: 127.0.0.1
+*   Trying [::1]:8000...
+* Connected to localhost (::1) port 8000
+* using HTTP/1.x
+> POST /api/subjects HTTP/1.1
+> Host: localhost:8000
+> User-Agent: curl/8.13.0
+> Accept: */*
+> Content-Type: application/json
+> Content-Length: 67
+>
+} [67 bytes data]
+* upload completely sent off: 67 bytes
+< HTTP/1.1 201 Created
+< X-Powered-By: Express
+< Access-Control-Allow-Origin: http://localhost:5173
+< Vary: Origin
+< Access-Control-Allow-Credentials: true
+< Content-Type: application/json; charset=utf-8
+< Content-Length: 18
+< ETag: W/"12-jdxeNbgzc5HEnctvTUz1+YYIDrY"
+< Date: Mon, 24 Aug 2026 12:08:26 GMT
+< Connection: keep-alive
+< Keep-Alive: timeout=5
+<
+{"data":{"id":21}}
+```
+
+**Expected:** `401 Unauthorized` — request without session cookie should be rejected before reaching the route handler.  
+**Actual:** `201 Created` (`{"data":{"id":21}}`). Request reached route handler and successfully inserted subject into DB without any session authentication.  
+**Status:** FAIL  
+**Defect:** DEFECT-SUBJ-002A: Route `POST /api/subjects` has no authentication middleware — unauthenticated requests bypass auth entirely and are processed by the handler.
+
+---
+
+## TC-SUBJ-002 — POST /api/subjects Auth Guard Check (Scenario B: Student Cookie)
+
+**Timestamp:** 2026-08-24T17:41:47+05:30  
+**Target URL:** `http://localhost:8000/api/subjects`  
+**Command Executed:**
+```bash
+curl.exe -v -b student-cookies.txt http://localhost:8000/api/subjects \
+  -H "Content-Type: application/json" \
+  -d '{"code":"SUBJTEST-STU","name":"Subject Test Student","departmentId":2}'
+```
+
+**Raw Output:**
+```http
+* Host localhost:8000 was resolved.
+* IPv6: ::1
+* IPv4: 127.0.0.1
+*   Trying [::1]:8000...
+* Connected to localhost (::1) port 8000
+* using HTTP/1.x
+> POST /api/subjects HTTP/1.1
+> Host: localhost:8000
+> User-Agent: curl/8.13.0
+> Accept: */*
+> Cookie: better-auth.session_token=Xy4vxjto5uxgJUUTXBFOYZDSid5eawNn.yQqVlFgMhtu1CDUG6OothfARF2a1J6vtgxb6%2B1pWqak%3D
+> Content-Type: application/json
+> Content-Length: 73
+>
+} [73 bytes data]
+* upload completely sent off: 73 bytes
+< HTTP/1.1 201 Created
+< X-Powered-By: Express
+< Access-Control-Allow-Origin: http://localhost:5173
+< Vary: Origin
+< Access-Control-Allow-Credentials: true
+< Content-Type: application/json; charset=utf-8
+< Content-Length: 18
+< ETag: W/"12-N4YZGR+5cuKkjZetLywu5LbLSd8"
+< Date: Mon, 24 Aug 2026 12:11:52 GMT
+< Connection: keep-alive
+< Keep-Alive: timeout=5
+<
+{"data":{"id":24}}
+```
+
+**Expected:** `403 Forbidden` — session cookie with `role: "student"` should be rejected by RBAC middleware before subject creation proceeds.  
+**Actual:** `201 Created` (`{"data":{"id":24}}`). Student session cookie (`role: "student"`, `id: "mqFdl6ifg2xQrOcCTwRkXS1iIOHCvKz7"`) was accepted and subject inserted into DB without any role authorization check.  
+**Status:** FAIL  
+**Defect:** DEFECT-SUBJ-002B: Route `POST /api/subjects` has no RBAC authorization middleware — student-role sessions can create subjects, which should be restricted to `admin`/`teacher` roles only.
+
+---
+
+## TC-CLASS-002 — POST /api/classes Auth Guard Check (Scenario A: No Cookie)
+
+**Timestamp:** 2026-08-24T17:41:59+05:30  
+**Target URL:** `http://localhost:8000/api/classes`  
+**Command Executed:**
+```bash
+curl.exe -v http://localhost:8000/api/classes \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Physics 202","subjectId":18,"teacherId":"i7hZl4BPZmv8M9mcaTB81yC4wqTmEyfW","inviteCode":"PHYS202","capacity":30}'
+```
+
+**Raw Output:**
+```http
+* Host localhost:8000 was resolved.
+* IPv6: ::1
+* IPv4: 127.0.0.1
+*   Trying [::1]:8000...
+* Connected to localhost (::1) port 8000
+* using HTTP/1.x
+> POST /api/classes HTTP/1.1
+> Host: localhost:8000
+> User-Agent: curl/8.13.0
+> Accept: */*
+> Content-Type: application/json
+> Content-Length: 136
+>
+} [136 bytes data]
+* upload completely sent off: 136 bytes
+< HTTP/1.1 201 Created
+< X-Powered-By: Express
+< Access-Control-Allow-Origin: http://localhost:5173
+< Vary: Origin
+< Access-Control-Allow-Credentials: true
+< Content-Type: application/json; charset=utf-8
+< Content-Length: 17
+< ETag: W/"11-pp9xJ5ut3Q4XE3Cnj/YbjR17mAc"
+< Date: Mon, 24 Aug 2026 12:12:02 GMT
+< Connection: keep-alive
+< Keep-Alive: timeout=5
+<
+{"data":{"id":8}}
+```
+
+**Expected:** `401 Unauthorized` — request without session cookie should be rejected before reaching the route handler.  
+**Actual:** `201 Created` (`{"data":{"id":8}}`). Request reached route handler and successfully inserted a class record into DB without any session authentication.  
+**Status:** FAIL  
+**Defect:** DEFECT-CLASS-002A: Route `POST /api/classes` has no authentication middleware — unauthenticated requests bypass auth entirely and are processed by the handler.
+
+---
+
+## TC-CLASS-002 — POST /api/classes Auth Guard Check (Scenario B: Student Cookie)
+
+**Timestamp:** 2026-08-24T17:42:19+05:30  
+**Target URL:** `http://localhost:8000/api/classes`  
+**Command Executed:**
+```bash
+curl.exe -v -b student-cookies.txt http://localhost:8000/api/classes \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Physics 303","subjectId":18,"teacherId":"i7hZl4BPZmv8M9mcaTB81yC4wqTmEyfW","inviteCode":"PHYS303-STU","capacity":30}'
+```
+
+**Raw Output:**
+```http
+* Host localhost:8000 was resolved.
+* IPv6: ::1
+* IPv4: 127.0.0.1
+*   Trying [::1]:8000...
+* Connected to localhost (::1) port 8000
+* using HTTP/1.x
+> POST /api/classes HTTP/1.1
+> Host: localhost:8000
+> User-Agent: curl/8.13.0
+> Accept: */*
+> Cookie: better-auth.session_token=Xy4vxjto5uxgJUUTXBFOYZDSid5eawNn.yQqVlFgMhtu1CDUG6OothfARF2a1J6vtgxb6%2B1pWqak%3D
+> Content-Type: application/json
+> Content-Length: 128
+>
+} [128 bytes data]
+* upload completely sent off: 128 bytes
+< HTTP/1.1 201 Created
+< X-Powered-By: Express
+< Access-Control-Allow-Origin: http://localhost:5173
+< Vary: Origin
+< Access-Control-Allow-Credentials: true
+< Content-Type: application/json; charset=utf-8
+< Content-Length: 17
+< ETag: W/"11-NFmdOSt3cRVDHCIYuMZDzblgNXc"
+< Date: Mon, 24 Aug 2026 12:12:26 GMT
+< Connection: keep-alive
+< Keep-Alive: timeout=5
+<
+{"data":{"id":9}}
+```
+
+**Expected:** `403 Forbidden` — session cookie with `role: "student"` should be rejected by RBAC middleware before class creation proceeds.  
+**Actual:** `201 Created` (`{"data":{"id":9}}`). Student session cookie (`role: "student"`, `id: "mqFdl6ifg2xQrOcCTwRkXS1iIOHCvKz7"`) was accepted and class inserted into DB without any role authorization check.  
+**Status:** FAIL  
+**Defect:** DEFECT-CLASS-002B: Route `POST /api/classes` has no RBAC authorization middleware — student-role sessions can create classes, which should be restricted to `admin`/`teacher` roles only.
 
