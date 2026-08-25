@@ -1,7 +1,7 @@
 import express from "express";
-import { and, eq, getTableColumns } from "drizzle-orm";
+import { and, count, eq, getTableColumns, sql } from "drizzle-orm";
 
-import { db } from "../db/index.js";
+import { db, neonSql } from "../db/index.js";
 import { classes, departments, enrollments, subjects, user } from "../db/schema/index.js";
 
 import { authenticate } from "../middleware/auth.js";
@@ -89,15 +89,34 @@ router.post("/", authenticate, async (req, res) => {
         .status(409)
         .json({ error: "Student already enrolled in class" });
 
-    const [createdEnrollment] = await db
-      .insert(enrollments)
-      .values({ classId, studentId: effectiveStudentId })
-      .returning({ id: enrollments.id });
+    // Atomic capacity check + insert via CTE — single round-trip, race-condition safe
+    const rows = await neonSql`
+      WITH
+        cap AS (
+          SELECT capacity FROM classes WHERE id = ${classId}
+        ),
+        enrolled_count AS (
+          SELECT COUNT(*)::int AS enrolled FROM enrollments WHERE class_id = ${classId}
+        ),
+        inserted AS (
+          INSERT INTO enrollments (class_id, student_id)
+          SELECT ${classId}, ${effectiveStudentId}
+          WHERE (SELECT enrolled FROM enrolled_count) < (SELECT capacity FROM cap)
+          RETURNING id
+        )
+      SELECT
+        (SELECT id FROM inserted) AS inserted_id,
+        (SELECT enrolled FROM enrolled_count) AS enrolled,
+        (SELECT capacity FROM cap) AS capacity
+    `;
 
-    if (!createdEnrollment)
-      return res.status(500).json({ error: "Failed to create enrollment" });
+    const result = rows[0] as { inserted_id: number | null; enrolled: number; capacity: number } | undefined;
 
-    const enrollment = await getEnrollmentDetails(createdEnrollment.id);
+    if (!result || result.inserted_id === null || result.inserted_id === undefined) {
+      return res.status(400).json({ error: "Class is at full capacity" });
+    }
+
+    const enrollment = await getEnrollmentDetails(result.inserted_id);
 
     res.status(201).json({ data: enrollment });
   } catch (error: any) {
@@ -162,15 +181,34 @@ router.post("/join", authenticate, async (req, res) => {
         .status(409)
         .json({ error: "Student already enrolled in class" });
 
-    const [createdEnrollment] = await db
-      .insert(enrollments)
-      .values({ classId: classRecord.id, studentId: effectiveStudentId })
-      .returning({ id: enrollments.id });
+    // Atomic capacity check + insert via CTE — single round-trip, race-condition safe
+    const rows2 = await neonSql`
+      WITH
+        cap AS (
+          SELECT capacity FROM classes WHERE id = ${classRecord.id}
+        ),
+        enrolled_count AS (
+          SELECT COUNT(*)::int AS enrolled FROM enrollments WHERE class_id = ${classRecord.id}
+        ),
+        inserted AS (
+          INSERT INTO enrollments (class_id, student_id)
+          SELECT ${classRecord.id}, ${effectiveStudentId}
+          WHERE (SELECT enrolled FROM enrolled_count) < (SELECT capacity FROM cap)
+          RETURNING id
+        )
+      SELECT
+        (SELECT id FROM inserted) AS inserted_id,
+        (SELECT enrolled FROM enrolled_count) AS enrolled,
+        (SELECT capacity FROM cap) AS capacity
+    `;
 
-    if (!createdEnrollment)
-      return res.status(500).json({ error: "Failed to create enrollment" });
+    const result2 = rows2[0] as { inserted_id: number | null; enrolled: number; capacity: number } | undefined;
 
-    const enrollment = await getEnrollmentDetails(createdEnrollment.id);
+    if (!result2 || result2.inserted_id === null || result2.inserted_id === undefined) {
+      return res.status(400).json({ error: "Class is at full capacity" });
+    }
+
+    const enrollment = await getEnrollmentDetails(result2.inserted_id);
 
     res.status(201).json({ data: enrollment });
   } catch (error: any) {
