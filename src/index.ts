@@ -15,6 +15,7 @@ import enrollmentsRouter from "./routes/enrollments.js";
 
 // import securityMiddleware from "./middleware/security.js";
 import { auth } from "./lib/auth.js";
+import { errorHandler } from "./middleware/errorHandler.js";
 
 const app = express();
 const PORT = 8000;
@@ -48,7 +49,10 @@ app.get("/favicon.ico", (req, res) => {
   res.status(204).end();
 });
 
+// Global error handling middleware (must be registered after all routes)
+app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
 });
+

@@ -4,6 +4,8 @@ import { and, eq, getTableColumns } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { classes, departments, enrollments, subjects, user } from "../db/schema/index.js";
 
+import { authenticate } from "../middleware/auth.js";
+
 const router = express.Router();
 
 const getEnrollmentDetails = async (enrollmentId: number) => {
@@ -79,14 +81,17 @@ router.post("/", async (req, res) => {
       .returning({ id: enrollments.id });
 
     if (!createdEnrollment)
-      return res.status(500).json({ error: error?.message || String(error), stack: error?.stack });
+      return res.status(500).json({ error: "Failed to create enrollment" });
 
     const enrollment = await getEnrollmentDetails(createdEnrollment.id);
 
     res.status(201).json({ data: enrollment });
-  } catch (error) {
+  } catch (error: any) {
     console.error("POST /enrollments error:", error);
-    res.status(500).json({ error: error?.message, cause: error?.cause, detail: error?.detail || error?.cause?.detail || error?.cause?.message });
+    if (error?.code === "23505") {
+      return res.status(409).json({ error: "Student already enrolled in class" });
+    }
+    res.status(500).json({ error: "Failed to create enrollment" });
   }
 });
 
@@ -136,15 +141,51 @@ router.post("/join", async (req, res) => {
       .returning({ id: enrollments.id });
 
     if (!createdEnrollment)
-      return res.status(500).json({ error: error?.message || String(error), stack: error?.stack });
+      return res.status(500).json({ error: "Failed to create enrollment" });
 
     const enrollment = await getEnrollmentDetails(createdEnrollment.id);
 
     res.status(201).json({ data: enrollment });
-  } catch (error) {
+  } catch (error: any) {
     console.error("POST /enrollments/join error:", error);
-    if (error?.code === "23505") { return res.status(409).json({ error: "Student already enrolled in class" }); }
-    res.status(500).json({ error: error?.message || "Failed to create enrollment" });
+    if (error?.code === "23505") {
+      return res.status(409).json({ error: "Student already enrolled in class" });
+    }
+    res.status(500).json({ error: "Failed to create enrollment" });
+  }
+});
+
+// Delete enrollment (accessible by student owner or admin/teacher)
+router.delete("/:id", authenticate, async (req, res) => {
+  try {
+    const enrollmentId = Number(req.params.id);
+
+    if (!Number.isFinite(enrollmentId)) {
+      return res.status(400).json({ error: "Invalid enrollment id" });
+    }
+
+    const [existingEnrollment] = await db
+      .select({ id: enrollments.id, studentId: enrollments.studentId })
+      .from(enrollments)
+      .where(eq(enrollments.id, enrollmentId));
+
+    if (!existingEnrollment) {
+      return res.status(404).json({ error: "Enrollment not found" });
+    }
+
+    const isElevatedUser = req.user?.role === "admin" || req.user?.role === "teacher";
+    const isOwner = req.user?.id === existingEnrollment.studentId;
+
+    if (!isElevatedUser && !isOwner) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    await db.delete(enrollments).where(eq(enrollments.id, enrollmentId));
+
+    return res.status(200).json({ data: { message: "Enrollment deleted successfully" } });
+  } catch (error) {
+    console.error("DELETE /enrollments/:id error:", error);
+    return res.status(500).json({ error: "Failed to delete enrollment" });
   }
 });
 

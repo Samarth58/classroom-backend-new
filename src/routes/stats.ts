@@ -4,7 +4,13 @@ import { desc, eq, getTableColumns, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { classes, departments, subjects, user } from "../db/schema/index.js";
 
+import { authenticate } from "../middleware/auth.js";
+
 const router = express.Router();
+
+// Require valid authentication for all stats routes
+router.use(authenticate);
+
 
 // Overview counts for core entities
 router.get("/overview", async (req, res) => {

@@ -10,7 +10,13 @@ import {
   user,
 } from "../db/schema/index.js";
 
+import { authenticate, requireRole } from "../middleware/auth.js";
+import { validateBody } from "../middleware/validate.js";
+import { createDepartmentSchema, updateDepartmentSchema } from "../lib/schemas.js";
+
 const router = express.Router();
+
+
 
 // Get all departments with optional search and pagination
 router.get("/", async (req, res) => {
@@ -70,7 +76,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-router.post("/", async (req, res) => {
+router.post("/", authenticate, requireRole("admin", "teacher"), validateBody(createDepartmentSchema), async (req, res) => {
   try {
     const { code, name, description } = req.body;
 
@@ -82,8 +88,11 @@ router.post("/", async (req, res) => {
     if (!createdDepartment) throw Error;
 
     res.status(201).json({ data: createdDepartment });
-  } catch (error) {
+  } catch (error: any) {
     console.error("POST /departments error:", error);
+    if (error?.code === "23505" || error?.cause?.code === "23505") {
+      return res.status(409).json({ error: "Department code already exists" });
+    }
     res.status(500).json({ error: "Failed to create department" });
   }
 });
@@ -355,4 +364,81 @@ router.get("/:id/users", async (req, res) => {
   }
 });
 
+// Update department (partial)
+router.patch("/:id", authenticate, requireRole("admin", "teacher"), validateBody(updateDepartmentSchema), async (req, res) => {
+  try {
+    const departmentId = Number(req.params.id);
+
+    if (!Number.isFinite(departmentId)) {
+      return res.status(400).json({ error: "Invalid department id" });
+    }
+
+    const [existing] = await db
+      .select({ id: departments.id })
+      .from(departments)
+      .where(eq(departments.id, departmentId));
+
+    if (!existing) {
+      return res.status(404).json({ error: "Department not found" });
+    }
+
+    const updates = req.body as Record<string, unknown>;
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: "No fields provided for update" });
+    }
+
+    const [updated] = await db
+      .update(departments)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(departments.id, departmentId))
+      .returning();
+
+    return res.status(200).json({ data: updated });
+  } catch (error: any) {
+    console.error("PATCH /departments/:id error:", error);
+    if (error?.code === "23505" || error?.cause?.code === "23505") {
+      return res.status(409).json({ error: "Department code already exists" });
+    }
+    return res.status(500).json({ error: "Failed to update department" });
+  }
+});
+
+// Delete department (restricted if active subjects exist)
+router.delete("/:id", authenticate, requireRole("admin", "teacher"), async (req, res) => {
+  try {
+    const departmentId = Number(req.params.id);
+
+    if (!Number.isFinite(departmentId)) {
+      return res.status(400).json({ error: "Invalid department id" });
+    }
+
+    const [existingDepartment] = await db
+      .select({ id: departments.id })
+      .from(departments)
+      .where(eq(departments.id, departmentId));
+
+    if (!existingDepartment) {
+      return res.status(404).json({ error: "Department not found" });
+    }
+
+    await db.delete(departments).where(eq(departments.id, departmentId));
+
+    return res.status(200).json({ data: { message: "Department deleted successfully" } });
+  } catch (error: any) {
+    console.error("DELETE /departments/:id error:", error);
+    const isFkViolation =
+      error?.code === "23503" ||
+      error?.cause?.code === "23503" ||
+      String(error?.message).includes("foreign key") ||
+      String(error?.cause?.message).includes("foreign key");
+
+    if (isFkViolation) {
+      return res.status(400).json({ error: "Cannot delete department with active subjects" });
+    }
+    return res.status(500).json({ error: "Failed to delete department" });
+  }
+});
+
 export default router;
+

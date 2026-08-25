@@ -4,7 +4,12 @@ import { and, desc, eq, getTableColumns, ilike, or, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { classes, departments, enrollments, subjects, user } from "../db/schema/index.js";
 
+import { authenticate, requireRole } from "../middleware/auth.js";
+import { validateBody } from "../middleware/validate.js";
+import { createClassSchema, updateClassSchema } from "../lib/schemas.js";
+
 const router = express.Router();
+
 
 // Get all classes with optional search, subject, teacher filters, and pagination
 router.get("/", async (req, res) => {
@@ -79,7 +84,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-router.post("/", async (req, res) => {
+router.post("/", authenticate, requireRole("admin", "teacher"), validateBody(createClassSchema), async (req, res) => {
   try {
     const {
       name,
@@ -111,8 +116,14 @@ router.post("/", async (req, res) => {
     if (!createdClass) throw Error;
 
     res.status(201).json({ data: createdClass });
-  } catch (error) {
+  } catch (error: any) {
     console.error("POST /classes error:", error);
+    if (error?.code === "23503" || error?.cause?.code === "23503") {
+      return res.status(400).json({ error: "Referenced subject or teacher does not exist" });
+    }
+    if (error?.code === "23505" || error?.cause?.code === "23505") {
+      return res.status(409).json({ error: "Class invite code already exists" });
+    }
     res.status(500).json({ error: "Failed to create class" });
   }
 });
@@ -249,4 +260,75 @@ router.get("/:id/users", async (req, res) => {
   }
 });
 
+// Update class (partial)
+router.patch("/:id", authenticate, requireRole("admin", "teacher"), validateBody(updateClassSchema), async (req, res) => {
+  try {
+    const classId = Number(req.params.id);
+
+    if (!Number.isFinite(classId)) {
+      return res.status(400).json({ error: "Invalid class id" });
+    }
+
+    const [existing] = await db
+      .select({ id: classes.id })
+      .from(classes)
+      .where(eq(classes.id, classId));
+
+    if (!existing) {
+      return res.status(404).json({ error: "Class not found" });
+    }
+
+    const updates = req.body as Record<string, unknown>;
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: "No fields provided for update" });
+    }
+
+    const [updated] = await db
+      .update(classes)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(classes.id, classId))
+      .returning();
+
+    return res.status(200).json({ data: updated });
+  } catch (error: any) {
+    console.error("PATCH /classes/:id error:", error);
+    if (error?.code === "23505" || error?.cause?.code === "23505") {
+      return res.status(409).json({ error: "Class invite code already exists" });
+    }
+    if (error?.code === "23503" || error?.cause?.code === "23503") {
+      return res.status(400).json({ error: "Referenced subject or teacher does not exist" });
+    }
+    return res.status(500).json({ error: "Failed to update class" });
+  }
+});
+
+// Delete class (cascades to enrollments)
+router.delete("/:id", authenticate, requireRole("admin", "teacher"), async (req, res) => {
+  try {
+    const classId = Number(req.params.id);
+
+    if (!Number.isFinite(classId)) {
+      return res.status(400).json({ error: "Invalid class id" });
+    }
+
+    const [existingClass] = await db
+      .select({ id: classes.id })
+      .from(classes)
+      .where(eq(classes.id, classId));
+
+    if (!existingClass) {
+      return res.status(404).json({ error: "Class not found" });
+    }
+
+    await db.delete(classes).where(eq(classes.id, classId));
+
+    return res.status(200).json({ data: { message: "Class deleted successfully" } });
+  } catch (error: any) {
+    console.error("DELETE /classes/:id error:", error);
+    return res.status(500).json({ error: "Failed to delete class" });
+  }
+});
+
 export default router;
+
