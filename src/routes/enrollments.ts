@@ -36,11 +36,25 @@ const getEnrollmentDetails = async (enrollmentId: number) => {
 };
 
 // Create enrollment
-router.post("/", async (req, res) => {
+router.post("/", authenticate, async (req, res) => {
   try {
-    const { classId, studentId } = req.body;
+    const { classId } = req.body;
+    const callerRole = req.user!.role;
+    const callerId = req.user!.id;
 
-    if (!classId || !studentId) {
+    // Resolve effective studentId: students always enroll themselves
+    let effectiveStudentId: string;
+    if (callerRole === "student") {
+      if (req.body.studentId && req.body.studentId !== callerId) {
+        return res.status(403).json({ error: "Cannot enroll another user" });
+      }
+      effectiveStudentId = callerId;
+    } else {
+      // admin / teacher may specify any studentId
+      effectiveStudentId = req.body.studentId;
+    }
+
+    if (!classId || !effectiveStudentId) {
       return res
         .status(400)
         .json({ error: "classId and studentId are required" });
@@ -56,7 +70,7 @@ router.post("/", async (req, res) => {
     const [student] = await db
       .select()
       .from(user)
-      .where(eq(user.id, studentId));
+      .where(eq(user.id, effectiveStudentId));
 
     if (!student) return res.status(404).json({ error: "Student not found" });
 
@@ -66,7 +80,7 @@ router.post("/", async (req, res) => {
       .where(
         and(
           eq(enrollments.classId, classId),
-          eq(enrollments.studentId, studentId)
+          eq(enrollments.studentId, effectiveStudentId)
         )
       );
 
@@ -77,7 +91,7 @@ router.post("/", async (req, res) => {
 
     const [createdEnrollment] = await db
       .insert(enrollments)
-      .values({ classId, studentId })
+      .values({ classId, studentId: effectiveStudentId })
       .returning({ id: enrollments.id });
 
     if (!createdEnrollment)
@@ -96,11 +110,24 @@ router.post("/", async (req, res) => {
 });
 
 // Join class by invite code
-router.post("/join", async (req, res) => {
+router.post("/join", authenticate, async (req, res) => {
   try {
-    const { inviteCode, studentId } = req.body;
+    const { inviteCode } = req.body;
+    const callerRole = req.user!.role;
+    const callerId = req.user!.id;
 
-    if (!inviteCode || !studentId) {
+    // Resolve effective studentId: students always enroll themselves
+    let effectiveStudentId: string;
+    if (callerRole === "student") {
+      if (req.body.studentId && req.body.studentId !== callerId) {
+        return res.status(403).json({ error: "Cannot enroll another user" });
+      }
+      effectiveStudentId = callerId;
+    } else {
+      effectiveStudentId = req.body.studentId;
+    }
+
+    if (!inviteCode || !effectiveStudentId) {
       return res
         .status(400)
         .json({ error: "inviteCode and studentId are required" });
@@ -116,7 +143,7 @@ router.post("/join", async (req, res) => {
     const [student] = await db
       .select()
       .from(user)
-      .where(eq(user.id, studentId));
+      .where(eq(user.id, effectiveStudentId));
 
     if (!student) return res.status(404).json({ error: "Student not found" });
 
@@ -126,7 +153,7 @@ router.post("/join", async (req, res) => {
       .where(
         and(
           eq(enrollments.classId, classRecord.id),
-          eq(enrollments.studentId, studentId)
+          eq(enrollments.studentId, effectiveStudentId)
         )
       );
 
@@ -137,7 +164,7 @@ router.post("/join", async (req, res) => {
 
     const [createdEnrollment] = await db
       .insert(enrollments)
-      .values({ classId: classRecord.id, studentId })
+      .values({ classId: classRecord.id, studentId: effectiveStudentId })
       .returning({ id: enrollments.id });
 
     if (!createdEnrollment)
@@ -177,7 +204,7 @@ router.delete("/:id", authenticate, async (req, res) => {
     const isOwner = req.user?.id === existingEnrollment.studentId;
 
     if (!isElevatedUser && !isOwner) {
-      return res.status(403).json({ error: "Forbidden" });
+      return res.status(403).json({ error: "Cannot remove another user's enrollment" });
     }
 
     await db.delete(enrollments).where(eq(enrollments.id, enrollmentId));
