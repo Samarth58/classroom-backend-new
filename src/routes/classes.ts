@@ -84,6 +84,8 @@ router.get("/", async (req, res) => {
   }
 });
 
+const generateInviteCode = () => Math.random().toString(36).substring(2, 9);
+
 router.post("/", authenticate, requireRole("admin", "teacher"), validateBody(createClassSchema), async (req, res) => {
   try {
     const {
@@ -95,35 +97,60 @@ router.post("/", authenticate, requireRole("admin", "teacher"), validateBody(cre
       status,
       bannerUrl,
       bannerCldPubId,
+      inviteCode: customInviteCode,
     } = req.body;
 
-    const [createdClass] = await db
-      .insert(classes)
-      .values({
-        subjectId,
-        inviteCode: Math.random().toString(36).substring(2, 9),
-        name,
-        teacherId,
-        bannerCldPubId,
-        bannerUrl,
-        capacity,
-        description,
-        schedules: [],
-        status,
-      })
-      .returning({ id: classes.id });
+    const isCustomInviteCode = Boolean(customInviteCode && typeof customInviteCode === "string" && customInviteCode.trim().length > 0);
+    let inviteCodeToUse = isCustomInviteCode ? customInviteCode.trim() : generateInviteCode();
+    let attempts = 0;
+    const maxAttempts = 5;
 
-    if (!createdClass) throw Error;
+    while (attempts < maxAttempts) {
+      try {
+        attempts++;
+        const [createdClass] = await db
+          .insert(classes)
+          .values({
+            subjectId,
+            inviteCode: inviteCodeToUse,
+            name,
+            teacherId,
+            bannerCldPubId,
+            bannerUrl,
+            capacity,
+            description,
+            schedules: [],
+            status,
+          })
+          .returning({ id: classes.id });
 
-    res.status(201).json({ data: createdClass });
+        if (!createdClass) throw new Error("Failed to create class");
+
+        return res.status(201).json({ data: createdClass });
+      } catch (error: any) {
+        const isUniqueViolation = error?.code === "23505" || error?.cause?.code === "23505";
+        const isFkViolation = error?.code === "23503" || error?.cause?.code === "23503";
+
+        if (isFkViolation) {
+          return res.status(400).json({ error: "Referenced subject or teacher does not exist" });
+        }
+
+        if (isUniqueViolation) {
+          if (isCustomInviteCode) {
+            return res.status(409).json({ error: "Class invite code already exists" });
+          }
+          if (attempts < maxAttempts) {
+            inviteCodeToUse = generateInviteCode();
+            continue;
+          }
+          return res.status(409).json({ error: "Class invite code already exists" });
+        }
+
+        throw error;
+      }
+    }
   } catch (error: any) {
     console.error("POST /classes error:", error);
-    if (error?.code === "23503" || error?.cause?.code === "23503") {
-      return res.status(400).json({ error: "Referenced subject or teacher does not exist" });
-    }
-    if (error?.code === "23505" || error?.cause?.code === "23505") {
-      return res.status(409).json({ error: "Class invite code already exists" });
-    }
     res.status(500).json({ error: "Failed to create class" });
   }
 });
